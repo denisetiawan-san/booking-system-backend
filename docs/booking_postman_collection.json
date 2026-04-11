@@ -1,0 +1,479 @@
+{
+  "info": {
+    "name": "Booking System API",
+    "description": "Koleksi lengkap semua endpoint Booking System Backend.\n\nCara pakai:\n1. Import file ini ke Postman\n2. Buat Environment baru dengan variable: base_url, admin_token, customer_token, room_id, booking_id\n3. Jalankan request sesuai urutan di folder masing-masing\n\nBase URL: http://localhost:8090/api/v1",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "base_url", "value": "http://localhost:8090/api/v1", "type": "string" },
+    { "key": "admin_token", "value": "", "type": "string" },
+    { "key": "customer_token", "value": "", "type": "string" },
+    { "key": "room_id", "value": "", "type": "string" },
+    { "key": "booking_id", "value": "", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "Health Check",
+      "item": [
+        {
+          "name": "GET /health",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "http://localhost:8090/health", "host": ["localhost"], "port": "8090", "path": ["health"] },
+            "description": "Cek apakah server berjalan. Tidak butuh token apapun."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "body": "{\"status\":\"ok\",\"service\":\"booking-system\"}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "POST /auth/register",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/auth/register" },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"budi@example.com\",\n  \"password\": \"password123\",\n  \"name\": \"Budi Santoso\"\n}"
+            },
+            "description": "Daftar user baru. Langsung dapat token tanpa login lagi.\n\nSetelah register, kalau ingin jadi admin:\n→ Buka TablePlus → tabel users → ubah role dari 'customer' ke 'admin'"
+          },
+          "response": [
+            {
+              "name": "201 Created",
+              "status": "Created",
+              "code": 201,
+              "body": "{\n  \"success\": true,\n  \"message\": \"registrasi berhasil\",\n  \"data\": {\n    \"access_token\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...\",\n    \"refresh_token\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...\",\n    \"expires_in\": 900\n  }\n}"
+            },
+            {
+              "name": "409 Email Sudah Ada",
+              "status": "Conflict",
+              "code": 409,
+              "body": "{\n  \"success\": false,\n  \"error\": \"email sudah terdaftar\"\n}"
+            },
+            {
+              "name": "400 Validasi Gagal",
+              "status": "Bad Request",
+              "code": 400,
+              "body": "{\n  \"success\": false,\n  \"error\": \"Key: 'RegisterRequest.Password' Error:Field validation for 'Password' failed on the 'min' tag\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "POST /auth/login",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/auth/login" },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"budi@example.com\",\n  \"password\": \"password123\"\n}"
+            },
+            "description": "Login dengan email dan password.\n\nSalin access_token dari response ke variable {{customer_token}} atau {{admin_token}}."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"success\": true,\n  \"message\": \"login berhasil\",\n  \"data\": {\n    \"access_token\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...\",\n    \"refresh_token\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...\",\n    \"expires_in\": 900\n  }\n}"
+            },
+            {
+              "name": "401 Kredensial Salah",
+              "status": "Unauthorized",
+              "code": 401,
+              "body": "{\n  \"success\": false,\n  \"error\": \"email atau password salah\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "POST /auth/refresh",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/auth/refresh" },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refresh_token\": \"PASTE_REFRESH_TOKEN_DI_SINI\"\n}"
+            },
+            "description": "Perbarui access token menggunakan refresh token.\n\nRefresh token lama akan langsung tidak bisa dipakai lagi (token rotation).\nToken baru ada di response."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"success\": true,\n  \"message\": \"token berhasil diperbarui\",\n  \"data\": {\n    \"access_token\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...\",\n    \"refresh_token\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...\",\n    \"expires_in\": 900\n  }\n}"
+            },
+            {
+              "name": "401 Token Tidak Valid",
+              "status": "Unauthorized",
+              "code": 401,
+              "body": "{\n  \"success\": false,\n  \"error\": \"token tidak valid atau sudah expired\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "GET /auth/profile",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{customer_token}}" }],
+            "url": { "raw": "{{base_url}}/auth/profile" },
+            "description": "Lihat data profil user yang sedang login.\n\nUser ID diambil otomatis dari token — tidak perlu kirim user ID di body."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"success\": true,\n  \"message\": \"ok\",\n  \"data\": {\n    \"id\": \"550e8400-e29b-41d4-a716-446655440000\",\n    \"email\": \"budi@example.com\",\n    \"name\": \"Budi Santoso\",\n    \"role\": \"customer\"\n  }\n}"
+            },
+            {
+              "name": "401 Tidak Ada Token",
+              "status": "Unauthorized",
+              "code": 401,
+              "body": "{\n  \"success\": false,\n  \"error\": \"unauthorized: token diperlukan\"\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Rooms",
+      "item": [
+        {
+          "name": "GET /rooms (list semua kamar)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/rooms?page=1&limit=10",
+              "query": [
+                { "key": "page", "value": "1", "description": "Halaman ke berapa (default 1)" },
+                { "key": "limit", "value": "10", "description": "Jumlah item per halaman (default 10, max 100)" }
+              ]
+            },
+            "description": "List semua kamar aktif. PUBLIC — tidak perlu token.\n\nCoba juga:\n- GET /rooms?page=2&limit=5\n- GET /rooms (tanpa parameter, pakai default)"
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"success\": true,\n  \"message\": \"ok\",\n  \"data\": {\n    \"rooms\": [\n      {\n        \"id\": \"room-uuid-1\",\n        \"name\": \"Kamar Deluxe 101\",\n        \"description\": \"View laut, AC, WiFi gratis\",\n        \"capacity\": 2,\n        \"price_per_night\": 750000,\n        \"is_active\": true,\n        \"created_at\": \"2026-04-08T10:00:00Z\",\n        \"updated_at\": \"2026-04-08T10:00:00Z\"\n      },\n      {\n        \"id\": \"room-uuid-2\",\n        \"name\": \"Suite Premium\",\n        \"description\": \"Kamar mewah dengan jacuzzi\",\n        \"capacity\": 4,\n        \"price_per_night\": 2500000,\n        \"is_active\": true,\n        \"created_at\": \"2026-04-08T09:00:00Z\",\n        \"updated_at\": \"2026-04-08T09:00:00Z\"\n      }\n    ],\n    \"total\": 8,\n    \"page\": 1,\n    \"limit\": 10\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "GET /rooms/available (cari kamar tersedia)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/rooms/available?check_in=2099-06-10&check_out=2099-06-13&capacity=2",
+              "query": [
+                { "key": "check_in", "value": "2099-06-10", "description": "Tanggal masuk (YYYY-MM-DD)" },
+                { "key": "check_out", "value": "2099-06-13", "description": "Tanggal keluar (YYYY-MM-DD)" },
+                { "key": "capacity", "value": "2", "description": "Kapasitas minimal (opsional, default 1)" }
+              ]
+            },
+            "description": "Cari kamar yang tersedia untuk tanggal tertentu. PUBLIC.\n\nResponse sudah termasuk total_night dan total_price kalkulasi otomatis.\n\nKamar yang sudah dipesan untuk tanggal yang overlap tidak akan muncul."
+          },
+          "response": [
+            {
+              "name": "200 OK — Ada Kamar Tersedia",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"success\": true,\n  \"message\": \"ok\",\n  \"data\": [\n    {\n      \"room\": {\n        \"id\": \"room-uuid-1\",\n        \"name\": \"Kamar Deluxe 101\",\n        \"description\": \"View laut, AC, WiFi gratis\",\n        \"capacity\": 2,\n        \"price_per_night\": 750000,\n        \"is_active\": true,\n        \"created_at\": \"2026-04-08T10:00:00Z\",\n        \"updated_at\": \"2026-04-08T10:00:00Z\"\n      },\n      \"total_night\": 3,\n      \"total_price\": 2250000\n    }\n  ]\n}"
+            },
+            {
+              "name": "200 OK — Tidak Ada Kamar Tersedia",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"success\": true,\n  \"message\": \"ok\",\n  \"data\": []\n}"
+            },
+            {
+              "name": "400 Format Tanggal Salah",
+              "status": "Bad Request",
+              "code": 400,
+              "body": "{\n  \"success\": false,\n  \"error\": \"format check_in tidak valid, gunakan format: 2006-01-02 (contoh: 2099-06-10)\"\n}"
+            },
+            {
+              "name": "400 check_out Sebelum check_in",
+              "status": "Bad Request",
+              "code": 400,
+              "body": "{\n  \"success\": false,\n  \"error\": \"tanggal check-out harus setelah tanggal check-in\"\n}"
+            },
+            {
+              "name": "400 check_in Di Masa Lalu",
+              "status": "Bad Request",
+              "code": 400,
+              "body": "{\n  \"success\": false,\n  \"error\": \"tanggal check-in tidak boleh di masa lalu\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "GET /rooms/{id} (detail kamar)",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/rooms/{{room_id}}" },
+            "description": "Detail satu kamar berdasarkan ID. PUBLIC.\n\nGanti {{room_id}} dengan UUID kamar yang ingin dilihat."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"success\": true,\n  \"message\": \"ok\",\n  \"data\": {\n    \"id\": \"room-uuid-1\",\n    \"name\": \"Kamar Deluxe 101\",\n    \"description\": \"View laut, AC, WiFi gratis\",\n    \"capacity\": 2,\n    \"price_per_night\": 750000,\n    \"is_active\": true,\n    \"created_at\": \"2026-04-08T10:00:00Z\",\n    \"updated_at\": \"2026-04-08T10:00:00Z\"\n  }\n}"
+            },
+            {
+              "name": "404 Tidak Ditemukan",
+              "status": "Not Found",
+              "code": 404,
+              "body": "{\n  \"success\": false,\n  \"error\": \"data tidak ditemukan\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "POST /rooms (buat kamar — admin)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{admin_token}}" }
+            ],
+            "url": { "raw": "{{base_url}}/rooms" },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Kamar Deluxe 101\",\n  \"description\": \"Kamar dengan view laut, AC, WiFi gratis, breakfast included\",\n  \"capacity\": 2,\n  \"price_per_night\": 750000\n}"
+            },
+            "description": "Buat kamar baru. Hanya admin yang bisa akses.\n\nSalin id dari response ke variable {{room_id}} untuk dipakai di request berikutnya."
+          },
+          "response": [
+            {
+              "name": "201 Created",
+              "status": "Created",
+              "code": 201,
+              "body": "{\n  \"success\": true,\n  \"message\": \"kamar berhasil dibuat\",\n  \"data\": {\n    \"id\": \"room-uuid-baru\",\n    \"name\": \"Kamar Deluxe 101\",\n    \"description\": \"Kamar dengan view laut, AC, WiFi gratis, breakfast included\",\n    \"capacity\": 2,\n    \"price_per_night\": 750000,\n    \"is_active\": true,\n    \"created_at\": \"2026-04-09T10:00:00Z\",\n    \"updated_at\": \"2026-04-09T10:00:00Z\"\n  }\n}"
+            },
+            {
+              "name": "403 Bukan Admin",
+              "status": "Forbidden",
+              "code": 403,
+              "body": "{\n  \"success\": false,\n  \"error\": \"akses ditolak: role tidak mencukupi\"\n}"
+            },
+            {
+              "name": "401 Tidak Ada Token",
+              "status": "Unauthorized",
+              "code": 401,
+              "body": "{\n  \"success\": false,\n  \"error\": \"unauthorized: token diperlukan\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "PATCH /rooms/{id} (update kamar — admin)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{admin_token}}" }
+            ],
+            "url": { "raw": "{{base_url}}/rooms/{{room_id}}" },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"price_per_night\": 850000,\n  \"description\": \"Kamar renovasi baru, view laut, AC, WiFi, sarapan\"\n}"
+            },
+            "description": "Update sebagian field kamar (partial update). Hanya admin.\n\nHanya field yang dikirim yang berubah. Field yang tidak dikirim tetap nilainya.\n\nContoh lain:\n- Non-aktifkan kamar: { \"is_active\": false }\n- Update hanya nama: { \"name\": \"Kamar Deluxe 101 Renovasi\" }\n- Update kapasitas: { \"capacity\": 3 }"
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"success\": true,\n  \"message\": \"kamar berhasil diupdate\",\n  \"data\": {\n    \"id\": \"room-uuid-1\",\n    \"name\": \"Kamar Deluxe 101\",\n    \"description\": \"Kamar renovasi baru, view laut, AC, WiFi, sarapan\",\n    \"capacity\": 2,\n    \"price_per_night\": 850000,\n    \"is_active\": true,\n    \"created_at\": \"2026-04-08T10:00:00Z\",\n    \"updated_at\": \"2026-04-09T12:00:00Z\"\n  }\n}"
+            },
+            {
+              "name": "404 Kamar Tidak Ada",
+              "status": "Not Found",
+              "code": 404,
+              "body": "{\n  \"success\": false,\n  \"error\": \"data tidak ditemukan\"\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Bookings",
+      "item": [
+        {
+          "name": "POST /bookings (buat booking)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{customer_token}}" },
+              { "key": "Idempotency-Key", "value": "{{$guid}}", "description": "UUID unik per request. Pakai {{$guid}} agar Postman generate otomatis." }
+            ],
+            "url": { "raw": "{{base_url}}/bookings" },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"room_id\": \"{{room_id}}\",\n  \"check_in\": \"2099-06-10\",\n  \"check_out\": \"2099-06-13\",\n  \"notes\": \"Mohon siapkan extra pillow\"\n}"
+            },
+            "description": "Buat booking baru.\n\nDUA HEADER WAJIB:\n1. Authorization: Bearer <token>\n2. Idempotency-Key: <uuid unik>\n\nIdempotency-Key:\n- Gunakan {{$guid}} agar Postman generate UUID baru setiap kali\n- Untuk test idempotency: ganti dengan string tetap seperti 'test-key-001'\n\nKalau kamar sudah dipesan orang lain untuk tanggal yang overlap → 409.\nKalau key sudah pernah dipakai → return booking yang sama, tidak error.\n\nSalin id dari response ke variable {{booking_id}}."
+          },
+          "response": [
+            {
+              "name": "201 Created",
+              "status": "Created",
+              "code": 201,
+              "body": "{\n  \"success\": true,\n  \"message\": \"booking berhasil dibuat\",\n  \"data\": {\n    \"id\": \"booking-uuid-baru\",\n    \"room_id\": \"room-uuid-1\",\n    \"room_name\": \"Kamar Deluxe 101\",\n    \"check_in\": \"2099-06-10T00:00:00Z\",\n    \"check_out\": \"2099-06-13T00:00:00Z\",\n    \"status\": \"confirmed\",\n    \"total_price\": 2250000,\n    \"total_night\": 3,\n    \"notes\": \"Mohon siapkan extra pillow\",\n    \"created_at\": \"2026-04-09T10:00:00Z\"\n  }\n}"
+            },
+            {
+              "name": "409 Kamar Tidak Tersedia (Overlap)",
+              "status": "Conflict",
+              "code": 409,
+              "body": "{\n  \"success\": false,\n  \"error\": \"kamar tidak tersedia untuk tanggal yang dipilih, sudah ada booking yang overlap\"\n}"
+            },
+            {
+              "name": "400 Idempotency-Key Tidak Ada",
+              "status": "Bad Request",
+              "code": 400,
+              "body": "{\n  \"success\": false,\n  \"error\": \"header Idempotency-Key wajib diisi. Generate UUID unik di client sebelum setiap request booking.\"\n}"
+            },
+            {
+              "name": "400 Format Tanggal Salah",
+              "status": "Bad Request",
+              "code": 400,
+              "body": "{\n  \"success\": false,\n  \"error\": \"format check_in tidak valid, gunakan format: 2006-01-02 (contoh: 2099-06-10)\"\n}"
+            },
+            {
+              "name": "400 check_out Sebelum check_in",
+              "status": "Bad Request",
+              "code": 400,
+              "body": "{\n  \"success\": false,\n  \"error\": \"tanggal check-out harus setelah tanggal check-in\"\n}"
+            },
+            {
+              "name": "400 check_in Di Masa Lalu",
+              "status": "Bad Request",
+              "code": 400,
+              "body": "{\n  \"success\": false,\n  \"error\": \"tanggal check-in tidak boleh di masa lalu\"\n}"
+            },
+            {
+              "name": "404 Room Tidak Ditemukan",
+              "status": "Not Found",
+              "code": 404,
+              "body": "{\n  \"success\": false,\n  \"error\": \"data tidak ditemukan\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "GET /bookings (list booking saya)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{customer_token}}" }],
+            "url": { "raw": "{{base_url}}/bookings" },
+            "description": "Ambil semua booking milik user yang sedang login.\n\nDiurutkan dari yang paling baru. Hanya booking milik sendiri yang muncul."
+          },
+          "response": [
+            {
+              "name": "200 OK — Ada Booking",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"success\": true,\n  \"message\": \"ok\",\n  \"data\": [\n    {\n      \"id\": \"booking-uuid-1\",\n      \"room_id\": \"room-uuid-1\",\n      \"room_name\": \"Kamar Deluxe 101\",\n      \"check_in\": \"2099-06-10T00:00:00Z\",\n      \"check_out\": \"2099-06-13T00:00:00Z\",\n      \"status\": \"confirmed\",\n      \"total_price\": 2250000,\n      \"total_night\": 3,\n      \"notes\": \"Extra pillow\",\n      \"created_at\": \"2026-04-09T10:00:00Z\"\n    },\n    {\n      \"id\": \"booking-uuid-2\",\n      \"room_id\": \"room-uuid-2\",\n      \"room_name\": \"Suite Premium\",\n      \"check_in\": \"2099-08-01T00:00:00Z\",\n      \"check_out\": \"2099-08-05T00:00:00Z\",\n      \"status\": \"cancelled\",\n      \"total_price\": 10000000,\n      \"total_night\": 4,\n      \"notes\": \"\",\n      \"created_at\": \"2026-04-08T08:00:00Z\"\n    }\n  ]\n}"
+            },
+            {
+              "name": "200 OK — Belum Ada Booking",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"success\": true,\n  \"message\": \"ok\",\n  \"data\": []\n}"
+            },
+            {
+              "name": "401 Tidak Ada Token",
+              "status": "Unauthorized",
+              "code": 401,
+              "body": "{\n  \"success\": false,\n  \"error\": \"unauthorized: token diperlukan\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "GET /bookings/{id} (detail booking)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{customer_token}}" }],
+            "url": { "raw": "{{base_url}}/bookings/{{booking_id}}" },
+            "description": "Detail satu booking. User hanya bisa lihat booking miliknya.\n\nKalau coba akses booking orang lain → 403."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"success\": true,\n  \"message\": \"ok\",\n  \"data\": {\n    \"id\": \"booking-uuid-1\",\n    \"room_id\": \"room-uuid-1\",\n    \"room_name\": \"Kamar Deluxe 101\",\n    \"check_in\": \"2099-06-10T00:00:00Z\",\n    \"check_out\": \"2099-06-13T00:00:00Z\",\n    \"status\": \"confirmed\",\n    \"total_price\": 2250000,\n    \"total_night\": 3,\n    \"notes\": \"Extra pillow\",\n    \"created_at\": \"2026-04-09T10:00:00Z\"\n  }\n}"
+            },
+            {
+              "name": "403 Bukan Milik Sendiri",
+              "status": "Forbidden",
+              "code": 403,
+              "body": "{\n  \"success\": false,\n  \"error\": \"kamu tidak memiliki akses ke booking ini\"\n}"
+            },
+            {
+              "name": "404 Tidak Ditemukan",
+              "status": "Not Found",
+              "code": 404,
+              "body": "{\n  \"success\": false,\n  \"error\": \"data tidak ditemukan\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "DELETE /bookings/{id} (cancel booking)",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{customer_token}}" }],
+            "url": { "raw": "{{base_url}}/bookings/{{booking_id}}" },
+            "description": "Batalkan booking.\n\n4 aturan bisnis yang dicek sebelum cancel:\n1. Harus milik user yang login\n2. Status harus 'confirmed' (tidak bisa cancel yang sudah cancelled)\n3. check_in belum lewat (tamu belum check in)\n\nSetelah cancel, kamar otomatis tersedia lagi untuk tanggal tersebut."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"success\": true,\n  \"message\": \"booking berhasil dibatalkan\",\n  \"data\": null\n}"
+            },
+            {
+              "name": "403 Bukan Milik Sendiri",
+              "status": "Forbidden",
+              "code": 403,
+              "body": "{\n  \"success\": false,\n  \"error\": \"kamu tidak memiliki akses ke booking ini\"\n}"
+            },
+            {
+              "name": "409 Sudah Cancelled",
+              "status": "Conflict",
+              "code": 409,
+              "body": "{\n  \"success\": false,\n  \"error\": \"booking ini sudah dibatalkan sebelumnya\"\n}"
+            },
+            {
+              "name": "409 check_in Sudah Lewat",
+              "status": "Conflict",
+              "code": 409,
+              "body": "{\n  \"success\": false,\n  \"error\": \"tidak bisa membatalkan booking yang tanggal check-in sudah lewat\"\n}"
+            },
+            {
+              "name": "404 Tidak Ditemukan",
+              "status": "Not Found",
+              "code": 404,
+              "body": "{\n  \"success\": false,\n  \"error\": \"data tidak ditemukan\"\n}"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

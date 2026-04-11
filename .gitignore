@@ -1,0 +1,12 @@
+main
+*.exe
+.env
+coverage.out
+coverage.html
+.idea/
+.vscode/
+*.swp
+.DS_Store
+api.md.pdf
+PROJECT_DOCUMENTATION.md
+plan.txt
