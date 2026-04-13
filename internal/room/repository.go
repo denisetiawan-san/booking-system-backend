@@ -11,16 +11,12 @@ import (
 	"booking-system/pkg/apperror"
 )
 
-// Repository mendefinisikan kontrak database untuk domain room.
 type Repository interface {
 	Create(ctx context.Context, room *Room) error
 	GetByID(ctx context.Context, id string) (*Room, error)
 	List(ctx context.Context, limit, offset int) ([]Room, int, error)
 	Update(ctx context.Context, room *Room) error
 
-	// FindAvailable mencari kamar yang TIDAK memiliki booking aktif
-	// yang overlap dengan rentang tanggal checkIn–checkOut.
-	// Ini adalah query paling penting di Room service.
 	FindAvailable(ctx context.Context, checkIn, checkOut time.Time, minCapacity int) ([]Room, error)
 }
 
@@ -59,7 +55,6 @@ func (r *mysqlRepository) GetByID(ctx context.Context, id string) (*Room, error)
 }
 
 func (r *mysqlRepository) List(ctx context.Context, limit, offset int) ([]Room, int, error) {
-	// Hitung total untuk pagination
 	var total int
 	if err := r.db.GetContext(ctx, &total, `SELECT COUNT(*) FROM rooms WHERE is_active = 1`); err != nil {
 		return nil, 0, err
@@ -97,33 +92,6 @@ func (r *mysqlRepository) Update(ctx context.Context, room *Room) error {
 	return err
 }
 
-// FindAvailable mencari semua kamar aktif yang tersedia untuk rentang tanggal tertentu.
-//
-// ═══════════════════════════════════════════════════════════════
-// INI ADALAH QUERY PALING PENTING DI BOOKING SYSTEM
-// ═══════════════════════════════════════════════════════════════
-//
-// Logika "overlap" (dua range waktu dianggap overlap) menggunakan formula:
-//   rangeA.start < rangeB.end AND rangeA.end > rangeB.start
-//
-// Dibalik: dua range TIDAK overlap jika:
-//   rangeA.end <= rangeB.start OR rangeA.start >= rangeB.end
-//
-// Untuk query kita:
-//   booking_yang_ada.check_out <= tanggal_cari.check_in   (booking lama selesai sebelum kita mulai)
-//   OR
-//   booking_yang_ada.check_in  >= tanggal_cari.check_out  (booking lama mulai setelah kita selesai)
-//
-// Kita ambil kamar yang TIDAK memiliki booking yang overlap:
-//   NOT EXISTS (SELECT ... WHERE overlap_condition)
-//
-// Contoh visual:
-//   Request: check_in=10, check_out=15
-//
-//   Booking A: check_in=5,  check_out=10  → check_out(10) <= check_in(10) → TIDAK OVERLAP ✓
-//   Booking B: check_in=15, check_out=20  → check_in(15)  >= check_out(15) → TIDAK OVERLAP ✓
-//   Booking C: check_in=8,  check_out=12  → OVERLAP ✗ (kamar tidak tersedia)
-//   Booking D: check_in=12, check_out=18  → OVERLAP ✗ (kamar tidak tersedia)
 func (r *mysqlRepository) FindAvailable(ctx context.Context, checkIn, checkOut time.Time, minCapacity int) ([]Room, error) {
 	var rooms []Room
 	query := `
@@ -144,8 +112,7 @@ func (r *mysqlRepository) FindAvailable(ctx context.Context, checkIn, checkOut t
 		       )
 		ORDER  BY r.price_per_night ASC
 	`
-	// Parameter: minCapacity, checkOut (end of requested range), checkIn (start of requested range)
-	// Urutan parameter harus cocok dengan placeholder ? di query
+
 	if err := r.db.SelectContext(ctx, &rooms, query, minCapacity, checkOut, checkIn); err != nil {
 		return nil, err
 	}

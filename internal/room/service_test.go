@@ -12,7 +12,6 @@ import (
 	"booking-system/pkg/apperror"
 )
 
-// MockRepository adalah implementasi palsu dari room.Repository untuk unit test.
 type MockRepository struct {
 	mock.Mock
 }
@@ -43,8 +42,6 @@ func (m *MockRepository) FindAvailable(ctx context.Context, checkIn, checkOut ti
 	return args.Get(0).([]room.Room), args.Error(1)
 }
 
-// ── Test Create ───────────────────────────────────────────────────────────────
-
 func TestCreate_Success(t *testing.T) {
 	repo := new(MockRepository)
 	svc := room.NewService(repo)
@@ -58,18 +55,15 @@ func TestCreate_Success(t *testing.T) {
 	})
 
 	assert.NoError(t, err)
-	assert.NotEmpty(t, result.ID) // UUID harus di-generate
+	assert.NotEmpty(t, result.ID)
 	assert.Equal(t, "Kamar Deluxe", result.Name)
-	assert.True(t, result.IsActive) // kamar baru langsung aktif
+	assert.True(t, result.IsActive)
 }
-
-// ── Test List (pagination normalization) ─────────────────────────────────────
 
 func TestList_NormalizesDefaultPagination(t *testing.T) {
 	repo := new(MockRepository)
 	svc := room.NewService(repo)
 
-	// page=0 dan limit=0 harus dinormalisasi ke page=1, limit=10
 	repo.On("List", mock.Anything, 10, 0).Return([]room.Room{}, 0, nil)
 
 	result, err := svc.List(context.Background(), 0, 0)
@@ -84,7 +78,6 @@ func TestList_CapsLimitAt100(t *testing.T) {
 	repo := new(MockRepository)
 	svc := room.NewService(repo)
 
-	// limit=500 harus di-cap ke 100
 	repo.On("List", mock.Anything, 100, 0).Return([]room.Room{}, 0, nil)
 
 	result, err := svc.List(context.Background(), 1, 500)
@@ -92,8 +85,6 @@ func TestList_CapsLimitAt100(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, 100, result.Limit)
 }
-
-// ── Test Update ───────────────────────────────────────────────────────────────
 
 func TestUpdate_PartialUpdate(t *testing.T) {
 	repo := new(MockRepository)
@@ -107,7 +98,6 @@ func TestUpdate_PartialUpdate(t *testing.T) {
 		IsActive:      true,
 	}
 
-	// Hanya update harga, nama tidak berubah
 	newPrice := 450000.0
 	req := room.UpdateRoomRequest{
 		PricePerNight: &newPrice,
@@ -119,9 +109,9 @@ func TestUpdate_PartialUpdate(t *testing.T) {
 	result, err := svc.Update(context.Background(), "room-1", req)
 
 	assert.NoError(t, err)
-	assert.Equal(t, "Kamar Lama", result.Name)      // tidak berubah
-	assert.Equal(t, 450000.0, result.PricePerNight) // berubah
-	assert.Equal(t, 2, result.Capacity)             // tidak berubah
+	assert.Equal(t, "Kamar Lama", result.Name)
+	assert.Equal(t, 450000.0, result.PricePerNight)
+	assert.Equal(t, 2, result.Capacity)
 }
 
 func TestUpdate_RoomNotFound(t *testing.T) {
@@ -139,18 +129,16 @@ func TestUpdate_RoomNotFound(t *testing.T) {
 	repo.AssertNotCalled(t, "Update")
 }
 
-// ── Test SearchAvailable ──────────────────────────────────────────────────────
-
 func TestSearchAvailable_InvalidDateFormat(t *testing.T) {
 	repo := new(MockRepository)
 	svc := room.NewService(repo)
 
 	_, err := svc.SearchAvailable(context.Background(), room.SearchAvailabilityRequest{
-		CheckIn:  "10-04-2099", // format salah, harus 2099-04-10
+		CheckIn:  "10-04-2099",
 		CheckOut: "2099-04-15",
 	})
 
-	assert.Error(t, err) // harus ada error validasi format
+	assert.Error(t, err)
 }
 
 func TestSearchAvailable_CheckOutBeforeCheckIn(t *testing.T) {
@@ -159,7 +147,7 @@ func TestSearchAvailable_CheckOutBeforeCheckIn(t *testing.T) {
 
 	_, err := svc.SearchAvailable(context.Background(), room.SearchAvailabilityRequest{
 		CheckIn:  "2099-06-15",
-		CheckOut: "2099-06-10", // check_out lebih awal dari check_in
+		CheckOut: "2099-06-10",
 	})
 
 	assert.ErrorIs(t, err, apperror.ErrInvalidDateRange)
@@ -170,7 +158,7 @@ func TestSearchAvailable_CheckInInPast(t *testing.T) {
 	svc := room.NewService(repo)
 
 	_, err := svc.SearchAvailable(context.Background(), room.SearchAvailabilityRequest{
-		CheckIn:  "2020-01-01", // di masa lalu
+		CheckIn:  "2020-01-01",
 		CheckOut: "2020-01-05",
 	})
 
@@ -185,17 +173,16 @@ func TestSearchAvailable_CalculatesCorrectTotalPrice(t *testing.T) {
 		{ID: "room-1", Name: "Kamar A", PricePerNight: 500000, Capacity: 2, IsActive: true},
 	}
 
-	// FindAvailable dipanggil dengan argumen apapun — kita tidak tahu exact time.Time-nya
 	repo.On("FindAvailable", mock.Anything, mock.Anything, mock.Anything, mock.Anything).
 		Return(mockRooms, nil)
 
 	results, err := svc.SearchAvailable(context.Background(), room.SearchAvailabilityRequest{
 		CheckIn:  "2099-06-10",
-		CheckOut: "2099-06-13", // 3 malam
+		CheckOut: "2099-06-13",
 	})
 
 	assert.NoError(t, err)
 	assert.Equal(t, 1, len(results))
 	assert.Equal(t, 3, results[0].TotalNight)
-	assert.Equal(t, 1500000.0, results[0].TotalPrice) // 500000 × 3
+	assert.Equal(t, 1500000.0, results[0].TotalPrice)
 }

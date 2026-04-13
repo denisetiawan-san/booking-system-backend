@@ -11,12 +11,6 @@ import (
 	"booking-system/pkg/apperror"
 )
 
-// Repository mendefinisikan kontrak database untuk domain auth.
-//
-// Kenapa interface?
-// - Service layer tidak tahu implementasi database (MySQL, PostgreSQL, in-memory)
-// - Di unit test, kita bisa pakai MockRepository tanpa database sungguhan
-// - Kalau ganti database, cukup buat implementasi baru tanpa ubah service
 type Repository interface {
 	CreateUser(ctx context.Context, user *User) error
 	GetUserByEmail(ctx context.Context, email string) (*User, error)
@@ -26,7 +20,6 @@ type Repository interface {
 	RevokeRefreshToken(ctx context.Context, token string) error
 }
 
-// mysqlRepository adalah implementasi Repository yang menggunakan MySQL.
 type mysqlRepository struct {
 	db *sqlx.DB
 }
@@ -36,8 +29,6 @@ func NewRepository(db *sqlx.DB) Repository {
 }
 
 func (r *mysqlRepository) CreateUser(ctx context.Context, user *User) error {
-	// NamedExecContext membaca tag db: dari struct User
-	// dan mapping field ke placeholder :nama_field secara otomatis
 	query := `
 		INSERT INTO users (id, email, password, name, role)
 		VALUES (:id, :email, :password, :name, :role)
@@ -53,11 +44,9 @@ func (r *mysqlRepository) GetUserByEmail(ctx context.Context, email string) (*Us
 		FROM   users
 		WHERE  email = ?
 	`
-	// GetContext mengeksekusi query dan scan hasilnya ke struct sekaligus
 	err := r.db.GetContext(ctx, &user, query, email)
 	if errors.Is(err, sql.ErrNoRows) {
-		// Terjemahkan error database ke AppError milik kita
-		// Agar caller tidak perlu tahu detail implementasi database
+
 		return nil, apperror.ErrNotFound
 	}
 	if err != nil {
@@ -99,8 +88,7 @@ func (r *mysqlRepository) GetRefreshToken(ctx context.Context, token string) (st
 		UserID string `db:"user_id"`
 		Role   string `db:"role"`
 	}
-	// JOIN ke tabel users untuk mendapatkan role sekaligus
-	// WHERE: token harus cocok, belum di-revoke, dan belum expired
+
 	query := `
 		SELECT u.id AS user_id, u.role
 		FROM   refresh_tokens rt
@@ -120,8 +108,7 @@ func (r *mysqlRepository) GetRefreshToken(ctx context.Context, token string) (st
 }
 
 func (r *mysqlRepository) RevokeRefreshToken(ctx context.Context, token string) error {
-	// Set revoked=1 agar token tidak bisa dipakai lagi
-	// (tidak dihapus agar ada audit trail)
+
 	query := `UPDATE refresh_tokens SET revoked = 1 WHERE token = ?`
 	_, err := r.db.ExecContext(ctx, query, token)
 	return err

@@ -14,10 +14,6 @@ import (
 	"booking-system/pkg/apperror"
 )
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Mock Repositories
-// ─────────────────────────────────────────────────────────────────────────────
-
 type MockBookingRepo struct{ mock.Mock }
 
 func (m *MockBookingRepo) BeginTx(ctx context.Context) (*sqlx.Tx, error) {
@@ -83,13 +79,6 @@ func (m *MockRoomRepo) FindAvailable(ctx context.Context, ci, co time.Time, minC
 	return args.Get(0).([]room.Room), args.Error(1)
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Test: Idempotency
-// ─────────────────────────────────────────────────────────────────────────────
-
-// TestCreate_IdempotencyKeyAlreadyUsed memverifikasi bahwa request duplikat
-// mengembalikan booking yang sudah ada tanpa membuat booking baru.
-// Ini adalah proteksi utama melawan double-click dari user.
 func TestCreate_IdempotencyKeyAlreadyUsed(t *testing.T) {
 	bookingRepo := new(MockBookingRepo)
 	roomRepo := new(MockRoomRepo)
@@ -107,7 +96,6 @@ func TestCreate_IdempotencyKeyAlreadyUsed(t *testing.T) {
 		RoomName: "Kamar Deluxe",
 	}
 
-	// Simulasi: idempotency key sudah pernah dipakai
 	bookingRepo.On("GetByIdempotencyKey", mock.Anything, "key-123").
 		Return(existingBooking, nil)
 	bookingRepo.On("GetByID", mock.Anything, "booking-existing").
@@ -121,16 +109,10 @@ func TestCreate_IdempotencyKeyAlreadyUsed(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.Equal(t, "booking-existing", result.ID)
-	// Pastikan tidak ada transaksi baru yang dimulai
 	bookingRepo.AssertNotCalled(t, "BeginTx")
 	bookingRepo.AssertNotCalled(t, "LockRoom")
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Test: Cancel validations
-// ─────────────────────────────────────────────────────────────────────────────
-
-// TestCancel_NotOwner memverifikasi bahwa user tidak bisa cancel booking orang lain.
 func TestCancel_NotOwner(t *testing.T) {
 	bookingRepo := new(MockBookingRepo)
 	roomRepo := new(MockRoomRepo)
@@ -139,27 +121,23 @@ func TestCancel_NotOwner(t *testing.T) {
 	futureCheckIn := time.Now().AddDate(0, 0, 10)
 	futureCheckOut := futureCheckIn.AddDate(0, 0, 2)
 
-	// Booking ini milik user-1
 	bookingRepo.On("GetByID", mock.Anything, "booking-1").
 		Return(&booking.BookingWithRoom{
 			Booking: booking.Booking{
 				ID:       "booking-1",
-				UserID:   "user-1", // milik user-1
+				UserID:   "user-1",
 				Status:   "confirmed",
 				CheckIn:  futureCheckIn,
 				CheckOut: futureCheckOut,
 			},
 		}, nil)
 
-	// user-2 mencoba cancel booking milik user-1
 	err := svc.Cancel(context.Background(), "booking-1", "user-2")
 
 	assert.ErrorIs(t, err, apperror.ErrBookingNotOwned)
 	bookingRepo.AssertNotCalled(t, "Cancel")
 }
 
-// TestCancel_AlreadyCancelled memverifikasi bahwa booking yang sudah cancelled
-// tidak bisa di-cancel lagi.
 func TestCancel_AlreadyCancelled(t *testing.T) {
 	bookingRepo := new(MockBookingRepo)
 	roomRepo := new(MockRoomRepo)
@@ -172,7 +150,7 @@ func TestCancel_AlreadyCancelled(t *testing.T) {
 			Booking: booking.Booking{
 				ID:       "booking-1",
 				UserID:   "user-1",
-				Status:   "cancelled", // sudah cancelled
+				Status:   "cancelled",
 				CheckIn:  futureDate,
 				CheckOut: futureDate.AddDate(0, 0, 2),
 			},
@@ -183,14 +161,11 @@ func TestCancel_AlreadyCancelled(t *testing.T) {
 	assert.ErrorIs(t, err, apperror.ErrAlreadyCancelled)
 }
 
-// TestCancel_CheckInAlreadyPassed memverifikasi bahwa booking yang check_in-nya
-// sudah lewat tidak bisa dibatalkan (tamu sudah check in).
 func TestCancel_CheckInAlreadyPassed(t *testing.T) {
 	bookingRepo := new(MockBookingRepo)
 	roomRepo := new(MockRoomRepo)
 	svc := booking.NewService(bookingRepo, roomRepo)
 
-	// Check_in sudah 5 hari yang lalu
 	pastCheckIn := time.Now().AddDate(0, 0, -5)
 	pastCheckOut := time.Now().AddDate(0, 0, 2)
 
@@ -210,13 +185,11 @@ func TestCancel_CheckInAlreadyPassed(t *testing.T) {
 	assert.ErrorIs(t, err, apperror.ErrCannotCancelPastBooking)
 }
 
-// TestCancel_Success memverifikasi skenario happy path cancel booking.
 func TestCancel_Success(t *testing.T) {
 	bookingRepo := new(MockBookingRepo)
 	roomRepo := new(MockRoomRepo)
 	svc := booking.NewService(bookingRepo, roomRepo)
 
-	// Check_in 10 hari ke depan — masih bisa di-cancel
 	futureCheckIn := time.Now().AddDate(0, 0, 10)
 
 	bookingRepo.On("GetByID", mock.Anything, "booking-1").

@@ -26,7 +26,6 @@ func main() {
 		log.Fatal("argument harus 'up' atau 'down'")
 	}
 
-	// DSN menggunakan multiStatements=true agar satu file bisa berisi banyak statement SQL
 	dsn := fmt.Sprintf(
 		"%s:%s@tcp(%s:%s)/%s?parseTime=true&multiStatements=true",
 		os.Getenv("DB_USER"),
@@ -46,7 +45,6 @@ func main() {
 		log.Fatal("gagal ping database:", err)
 	}
 
-	// Buat tabel untuk melacak migration yang sudah dijalankan
 	_, err = db.Exec(`
 		CREATE TABLE IF NOT EXISTS schema_migrations (
 			version    VARCHAR(255) NOT NULL,
@@ -58,14 +56,12 @@ func main() {
 		log.Fatal("gagal buat tabel schema_migrations:", err)
 	}
 
-	// Cari semua file migration sesuai arah
 	files, err := filepath.Glob(fmt.Sprintf("migrations/*.%s.sql", direction))
 	if err != nil || len(files) == 0 {
 		log.Fatalf("tidak ada file migration ditemukan untuk direction '%s'", direction)
 	}
 	sort.Strings(files)
 
-	// Untuk rollback, jalankan dari yang terbaru ke terlama
 	if direction == "down" {
 		for i, j := 0, len(files)-1; i < j; i, j = i+1, j-1 {
 			files[i], files[j] = files[j], files[i]

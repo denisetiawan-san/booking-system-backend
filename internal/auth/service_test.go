@@ -12,9 +12,6 @@ import (
 	"booking-system/pkg/apperror"
 )
 
-// MockRepository adalah implementasi palsu dari auth.Repository.
-// Dipakai di test agar tidak butuh database sungguhan.
-// Setiap method di-record dan bisa di-assert apakah dipanggil dengan argumen yang benar.
 type MockRepository struct {
 	mock.Mock
 }
@@ -52,7 +49,6 @@ func (m *MockRepository) RevokeRefreshToken(ctx context.Context, token string) e
 	return m.Called(ctx, token).Error(0)
 }
 
-// newTestService membuat service dengan konfigurasi standar untuk test
 func newTestService(repo auth.Repository) auth.Service {
 	return auth.NewService(repo, auth.Config{
 		JWTSecret:          "test-secret-booking-system-32chars",
@@ -61,23 +57,16 @@ func newTestService(repo auth.Repository) auth.Service {
 	})
 }
 
-// bcryptHash adalah hash yang sudah dibuat sebelumnya dari "password123"
-// Kita hardcode agar test tidak perlu generate hash baru setiap kali jalan
 const bcryptHash = "$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy"
-
-// ── Test Register ─────────────────────────────────────────────────────────────
 
 func TestRegister_Success(t *testing.T) {
 	repo := new(MockRepository)
 	svc := newTestService(repo)
 
-	// Setup expectation: email belum ada
 	repo.On("GetUserByEmail", mock.Anything, "budi@test.com").
 		Return(nil, apperror.ErrNotFound)
-	// CreateUser akan dipanggil dengan User apapun (UUID-nya random)
 	repo.On("CreateUser", mock.Anything, mock.AnythingOfType("*auth.User")).
 		Return(nil)
-	// SaveRefreshToken akan dipanggil
 	repo.On("SaveRefreshToken", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).
 		Return(nil)
 
@@ -88,7 +77,7 @@ func TestRegister_Success(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotEmpty(t, result.AccessToken)
 	assert.NotEmpty(t, result.RefreshToken)
-	assert.Equal(t, 900, result.ExpiresIn) // 15 menit = 900 detik
+	assert.Equal(t, 900, result.ExpiresIn)
 	repo.AssertExpectations(t)
 }
 
@@ -96,7 +85,6 @@ func TestRegister_EmailAlreadyExists(t *testing.T) {
 	repo := new(MockRepository)
 	svc := newTestService(repo)
 
-	// Email sudah ada di database
 	repo.On("GetUserByEmail", mock.Anything, "budi@test.com").
 		Return(&auth.User{ID: "existing", Email: "budi@test.com"}, nil)
 
@@ -105,11 +93,8 @@ func TestRegister_EmailAlreadyExists(t *testing.T) {
 	})
 
 	assert.ErrorIs(t, err, apperror.ErrEmailAlreadyExists)
-	// Pastikan CreateUser TIDAK dipanggil karena email sudah ada
 	repo.AssertNotCalled(t, "CreateUser")
 }
-
-// ── Test Login ────────────────────────────────────────────────────────────────
 
 func TestLogin_Success(t *testing.T) {
 	repo := new(MockRepository)
@@ -149,8 +134,7 @@ func TestLogin_WrongPassword(t *testing.T) {
 }
 
 func TestLogin_EmailNotFound_ReturnsSameErrorAsWrongPassword(t *testing.T) {
-	// Test ini memverifikasi bahwa "email tidak ada" dan "password salah"
-	// memberikan response error yang SAMA (anti user enumeration attack)
+
 	repo := new(MockRepository)
 	svc := newTestService(repo)
 
@@ -161,11 +145,8 @@ func TestLogin_EmailNotFound_ReturnsSameErrorAsWrongPassword(t *testing.T) {
 		Email: "tidakada@test.com", Password: "password123",
 	})
 
-	// HARUS ErrInvalidCredentials, bukan ErrNotFound
 	assert.ErrorIs(t, err, apperror.ErrInvalidCredentials)
 }
-
-// ── Test Refresh Token ────────────────────────────────────────────────────────
 
 func TestRefreshToken_Success(t *testing.T) {
 	repo := new(MockRepository)
@@ -184,7 +165,6 @@ func TestRefreshToken_Success(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.NotEmpty(t, result.AccessToken)
-	// Token lama harus di-revoke
 	repo.AssertCalled(t, "RevokeRefreshToken", mock.Anything, "valid-token")
 }
 
@@ -200,6 +180,5 @@ func TestRefreshToken_InvalidToken(t *testing.T) {
 	})
 
 	assert.ErrorIs(t, err, apperror.ErrInvalidToken)
-	// RevokeRefreshToken tidak boleh dipanggil kalau token tidak valid
 	repo.AssertNotCalled(t, "RevokeRefreshToken")
 }
